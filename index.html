@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>External site title</title>
-    <script src="https://masternaut--testers.sandbox.my.salesforce.com/lightning/lightning.out.latest/index.iife.prod.js"></script>
+    <script src="https://masternaut--jobbrief.sandbox.my.salesforce.com/lightning/lightning.out.latest/index.iife.prod.js"></script>
     <style>
         c-lightning-out-job-briefing-wrapper.loaded{
                 background-color:#ffffff;
@@ -14,79 +14,85 @@
     </style>
 </head>
 <body>
-    <h1>External site element 1</h1>    
+    <h1>External site element 1</h1>
     <button id="loginButton">
         Login with Salesforce
     </button>
-    
+
     <lightning-out-application
         id="loApp"
-        app-id="1Us9Z00000001VZSAY"
+        app-id="1UsR100000000knKAA"
         components="c-lightning-out-job-briefing-wrapper">
     </lightning-out-application>
-    
-    <c-lightning-out-job-briefing-wrapper> </c-lightning-out-job-briefing-wrapper>    
+
+    <c-lightning-out-job-briefing-wrapper> </c-lightning-out-job-briefing-wrapper>
     <h3>External site element 2</h3>
-    
-    
+
+    <div id="uploadSection">
+        <input type="file" id="fileInput" />
+        <button id="uploadButton" disabled>Upload file to LWC</button>
+        <p id="uploadStatus"></p>
+    </div>
+
+
     <script>
     //Main script
     // Salesforce configuration
-    
+
     const SF_DOMAIN =
-        "https://masternaut--testers.sandbox.my.salesforce.com";
-    
+        "https://masternaut--jobbrief.sandbox.my.salesforce.com";
+
     const CLIENT_ID =
-        "3MVG9gW1gj2XrUw2VaydyJZTZfD8jSffU2i2BY.3_KtlfE3zE1bKZGUAKCFqx6vpUI8luKVu2sc2fAjYFhksm";
-        
+        "3MVG9V0Szgv_UJrHPwKNQeDp8dAIR_enqcRIomqumwHp51wG5U7wvr1NEnYNdM6HnPxvJ2or9eQQscpRkKQdC";
+
     //For serverside call to avoid CORS limitations of salesforce
     const WORKER_URL =
-        "https://yellow-night-4510.basit-ali.workers.dev/";
-    
+        "https://wild-pine-3c65.basit-ali.workers.dev/";
+
     const REDIRECT_URI =
         window.location.origin + window.location.pathname;
     // To expand height on load
     function expandLightningComponent(){
 
-        const component = document.querySelector( "c-lightning-out-job-briefing-wrapper" );       
-        if(component){    
-            component.classList.add("loaded");    
-            console.log("Lightning component expanded");    
+        const component = document.querySelector( "c-lightning-out-job-briefing-wrapper" );
+        if(component){
+            component.classList.add("loaded");
+            console.log("Lightning component expanded");
         }
-    }    
-    
+    }
+
     // Create a random PKCE code verifier
-    
+
     function generateVerifier() {
-    
+
         const chars =
             "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-    
+
         let result = "";
-    
+
         const random =
             crypto.getRandomValues( new Uint8Array(64) );
-    
+
         random.forEach(x => { result += chars[x % chars.length]; });
-    
+
         return result;
     }
-    
+
     // Create the SHA-256 PKCE code challenge
-    
+
     async function generateChallenge(verifier) {
-    
+
         const data =
             new TextEncoder().encode(verifier);
-    
+
         const hash =
             await crypto.subtle.digest(  "SHA-256", data);
-    
+
         return btoa( String.fromCharCode( ...new Uint8Array(hash) ) ).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
         }
-    
+
     // Redirect the user to Salesforce for login
-    
+
     document
     .getElementById("loginButton")
     .onclick = async function () {
@@ -103,20 +109,68 @@
             });
         window.location.href = loginUrl;
     };
-    
+
+    // Wire up the file upload UI. The listener for the LWC's result event is
+    // attached to the static element reference now; the element itself is only
+    // upgraded into the real LWC once Lightning Out boots (after frontdoorUrl is set),
+    // but the DOM node reference is stable so the listener still catches events
+    // dispatched later.
+    (function setupFileUpload() {
+        const component = document.querySelector("c-lightning-out-job-briefing-wrapper");
+        const fileInput = document.getElementById("fileInput");
+        const uploadButton = document.getElementById("uploadButton");
+        const statusEl = document.getElementById("uploadStatus");
+
+        component.addEventListener("lwcfileuploadresult", function (event) {
+            const { success, fileName, contentDocumentLinkId, error } = event.detail;
+            statusEl.textContent = success
+                ? `Uploaded ${fileName} (ContentDocumentLink: ${contentDocumentLinkId})`
+                : `Failed to upload ${fileName}: ${error}`;
+        });
+
+        uploadButton.onclick = function () {
+            const file = fileInput.files[0];
+            if (!file) {
+                statusEl.textContent = "Choose a file first.";
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function () {
+                // reader.result is a data URL like "data:<mime>;base64,<data>"
+                const base64Data = reader.result.split(",")[1];
+                statusEl.textContent = `Sending ${file.name} to the LWC…`;
+                component.dispatchEvent(
+                    new CustomEvent("sendfiletolwc", {
+                        detail: {
+                            fileName: file.name,
+                            base64Data: base64Data
+                        },
+                        bubbles: true,
+                        composed: true
+                    })
+                );
+            };
+            reader.onerror = function () {
+                statusEl.textContent = "Could not read the selected file.";
+            };
+            reader.readAsDataURL(file);
+        };
+    })();
+
     // Handle the OAuth callback from Salesforce
     (async function () {
         // Read the authorization code from the URL
         const params = new URLSearchParams(window.location.search);
-    
+
         const code = params.get("code");
         if (!code) {
             return;
         }
-    
+
         // Retrieve the PKCE verifier used during login
         const verifier = sessionStorage.getItem("pkce_verifier");
-    
+
         // Exchange the authorization code for an access token
         const tokenResponse =
             await fetch(
@@ -130,33 +184,33 @@
                     },
                     body:
                         new URLSearchParams({
-    
+
                             grant_type: "authorization_code",
                             client_id: CLIENT_ID,
                             code: code,
-    
+
                             redirect_uri: REDIRECT_URI,
-    
+
                             code_verifier: verifier
-    
+
                         })
                 }
             );
-    
-    
+
+
         const token =  await tokenResponse.json();
         console.log( "Token response",  token);
-    
+
         if (!token.access_token) {
             alert( JSON.stringify(token));
             return;
         }
-    
+
         // Remove the OAuth code from the browser address bar
         window.history.replaceState({}, document.title, window.location.pathname);
-    
+
         // Get a Lightning Out frontdoor URL from the Cloudflare Worker
-    
+
         const fdResponse =
             await fetch(
                 WORKER_URL,
@@ -173,23 +227,25 @@
                         })
                 }
             );
-    
-    
+
+
         const frontdoor =
             await fdResponse.json();
-    
-    
+
+
         console.log(
             "Frontdoor response",
             frontdoor
         );
-    
+
         // Pass the frontdoor URL to Lightning Out
-    
+
         if (frontdoor.frontdoor_uri) {
             document.getElementById("loApp").frontdoorUrl = frontdoor.frontdoor_uri;
             // Expand component height after Salesforce session is ready
             expandLightningComponent();
+            // Only now is the Lightning Out app booted and the LWC upgraded/ready to receive events.
+            document.getElementById("uploadButton").disabled = false;
         }
         else {
             alert(
