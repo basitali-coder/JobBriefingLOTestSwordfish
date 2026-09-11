@@ -28,11 +28,46 @@
     <c-lightning-out-job-briefing-wrapper> </c-lightning-out-job-briefing-wrapper>
     <h3>External site element 2</h3>
 
-    <div id="uploadSection">
-        <input type="file" id="fileInput" />
-        <button id="uploadButton" disabled>Upload file to LWC</button>
-        <p id="uploadStatus"></p>
+    <div id="flowLoaderSection">
+        <label>Flow API Name <input type="text" id="flowApiNameInput" value="Case_Job_Brief" /></label>
+        <label>Case Number <input type="text" id="caseNumberInput" placeholder="e.g. 00001234" /></label>
+        <button id="loadFlowButton" disabled>Load Flow</button>
+        <p id="photoStatus"></p>
     </div>
+
+    <div id="photoModal" class="modal-backdrop" hidden>
+        <div class="modal-box">
+            <h3 id="photoModalTitle">Take photo</h3>
+            <input type="file" id="photoModalInput" accept="image/*" capture="environment" />
+            <div class="modal-actions">
+                <button id="photoModalCancel" type="button">Cancel</button>
+                <button id="photoModalUpload" type="button">Upload</button>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        #flowLoaderSection label { display: block; margin: 6px 0; }
+        .modal-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        .modal-backdrop[hidden] {
+            display: none !important;
+        }
+        .modal-box {
+            background: #fff;
+            border-radius: 8px;
+            padding: 20px;
+            min-width: 280px;
+        }
+        .modal-actions { margin-top: 12px; display: flex; gap: 8px; justify-content: flex-end; }
+    </style>
 
 
     <script>
@@ -110,39 +145,71 @@
         window.location.href = loginUrl;
     };
 
-    // Wire up the file upload UI. The listener for the LWC's result event is
+    // Wire up the flow-loader UI and the photo-upload round trip. Listeners are
     // attached to the static element reference now; the element itself is only
     // upgraded into the real LWC once Lightning Out boots (after frontdoorUrl is set),
-    // but the DOM node reference is stable so the listener still catches events
+    // but the DOM node reference is stable so the listeners still catch events
     // dispatched later.
-    (function setupFileUpload() {
+    (function setupFlowLoaderAndPhotoModal() {
         const component = document.querySelector("c-lightning-out-job-briefing-wrapper");
-        const fileInput = document.getElementById("fileInput");
-        const uploadButton = document.getElementById("uploadButton");
-        const statusEl = document.getElementById("uploadStatus");
+        const flowApiNameInput = document.getElementById("flowApiNameInput");
+        const caseNumberInput = document.getElementById("caseNumberInput");
+        const loadFlowButton = document.getElementById("loadFlowButton");
+        const statusEl = document.getElementById("photoStatus");
 
-        component.addEventListener("lwcfileuploadresult", function (event) {
-            const { success, fileName, contentDocumentLinkId, error } = event.detail;
-            statusEl.textContent = success
-                ? `Uploaded ${fileName} (ContentDocumentLink: ${contentDocumentLinkId})`
-                : `Failed to upload ${fileName}: ${error}`;
+        const photoModal = document.getElementById("photoModal");
+        const photoModalTitle = document.getElementById("photoModalTitle");
+        const photoModalInput = document.getElementById("photoModalInput");
+        const photoModalCancel = document.getElementById("photoModalCancel");
+        const photoModalUpload = document.getElementById("photoModalUpload");
+        let currentPhotoName = null;
+
+        loadFlowButton.onclick = function () {
+            const flowApiName = flowApiNameInput.value.trim();
+            const caseNumber = caseNumberInput.value.trim();
+            if (!flowApiName || !caseNumber) {
+                statusEl.textContent = "Enter a flow API name and a case number first.";
+                return;
+            }
+            statusEl.textContent = `Loading ${flowApiName} for case ${caseNumber}…`;
+            component.dispatchEvent(
+                new CustomEvent("loadflow", {
+                    detail: { flowApiName, caseNumber },
+                    bubbles: true,
+                    composed: true
+                })
+            );
+        };
+
+        // The LWC asks us (the host page) to actually take/pick a photo for a
+        // named requirement it doesn't know how to capture itself.
+        component.addEventListener("requestphotoupload", function (event) {
+            currentPhotoName = event.detail.photoName;
+            photoModalTitle.textContent = `Take photo: ${currentPhotoName}`;
+            photoModalInput.value = "";
+            photoModal.hidden = false;
         });
 
-        uploadButton.onclick = function () {
-            const file = fileInput.files[0];
+        photoModalCancel.onclick = function () {
+            photoModal.hidden = true;
+            currentPhotoName = null;
+        };
+
+        photoModalUpload.onclick = function () {
+            const file = photoModalInput.files[0];
             if (!file) {
-                statusEl.textContent = "Choose a file first.";
+                statusEl.textContent = "Choose a photo first.";
                 return;
             }
 
             const reader = new FileReader();
             reader.onload = function () {
-                // reader.result is a data URL like "data:<mime>;base64,<data>"
                 const base64Data = reader.result.split(",")[1];
-                statusEl.textContent = `Sending ${file.name} to the LWC…`;
+                statusEl.textContent = `Sending ${currentPhotoName} to the LWC…`;
                 component.dispatchEvent(
-                    new CustomEvent("sendfiletolwc", {
+                    new CustomEvent("photoready", {
                         detail: {
+                            photoName: currentPhotoName,
                             fileName: file.name,
                             base64Data: base64Data
                         },
@@ -150,12 +217,21 @@
                         composed: true
                     })
                 );
+                photoModal.hidden = true;
+                currentPhotoName = null;
             };
             reader.onerror = function () {
-                statusEl.textContent = "Could not read the selected file.";
+                statusEl.textContent = "Could not read the selected photo.";
             };
             reader.readAsDataURL(file);
         };
+
+        component.addEventListener("photouploadresult", function (event) {
+            const { success, photoName, fileName, contentDocumentLinkId, error } = event.detail;
+            statusEl.textContent = success
+                ? `Uploaded ${fileName} for "${photoName}" (ContentDocumentLink: ${contentDocumentLinkId})`
+                : `Failed to upload ${fileName} for "${photoName}": ${error}`;
+        });
     })();
 
     // Handle the OAuth callback from Salesforce
@@ -245,7 +321,7 @@
             // Expand component height after Salesforce session is ready
             expandLightningComponent();
             // Only now is the Lightning Out app booted and the LWC upgraded/ready to receive events.
-            document.getElementById("uploadButton").disabled = false;
+            document.getElementById("loadFlowButton").disabled = false;
         }
         else {
             alert(
