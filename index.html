@@ -14,6 +14,7 @@
     </style>
 </head>
 <body>
+    <div id="mainContent">
     <h1>External site element 1</h1>
     <button id="loginButton">
         Login with Salesforce
@@ -45,6 +46,9 @@
             </div>
         </div>
     </div>
+    </div>
+
+    <p id="nextScreenLabel" hidden>I have gone to the next screen</p>
 
     <style>
         #flowLoaderSection label { display: block; margin: 6px 0; }
@@ -264,6 +268,14 @@
             statusEl.textContent = success
                 ? `Uploaded ${fileName} for "${photoName}" (ContentDocumentLink: ${contentDocumentLinkId})`
                 : `Failed to upload ${fileName} for "${photoName}": ${error}`;
+        });
+
+        // The LWC's Next button (only enabled once every photo is uploaded)
+        // tells us to move on. For testing purposes we just hide everything
+        // and show a placeholder label - the real "next screen" isn't built yet.
+        component.addEventListener("gotonextscreen", function () {
+            document.getElementById("mainContent").hidden = true;
+            document.getElementById("nextScreenLabel").hidden = false;
         });
     })();
 
