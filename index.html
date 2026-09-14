@@ -32,8 +32,8 @@
         <label>Flow API Name <input type="text" id="flowApiNameInput" value="Case_Job_Brief" /></label>
         <label>Case Number <input type="text" id="caseNumberInput" placeholder="e.g. 00001234" /></label>
         <button id="loadFlowButton" disabled>Load Flow</button>
-        <p id="photoStatus"></p>
     </div>
+    <p id="photoStatus"></p>
 
     <div id="photoModal" class="modal-backdrop" hidden>
         <div class="modal-box">
@@ -179,6 +179,7 @@
                     composed: true
                 })
             );
+            document.getElementById("flowLoaderSection").hidden = true;
         };
 
         // The LWC asks us (the host page) to actually take/pick a photo for a
@@ -195,35 +196,67 @@
             currentPhotoName = null;
         };
 
-        photoModalUpload.onclick = function () {
+        // Camera photos can be several MB at full resolution, and that's too
+        // large for the Aura remote-action round trip (it fails with a generic
+        // "aura:systemError" rather than a clean Apex error). Downscale/re-encode
+        // via canvas first so the base64 payload stays small.
+        function resizeImageToBase64(file, maxDimension, quality) {
+            return new Promise(function (resolve, reject) {
+                const objectUrl = URL.createObjectURL(file);
+                const img = new Image();
+                img.onload = function () {
+                    URL.revokeObjectURL(objectUrl);
+                    let { width, height } = img;
+                    if (width > maxDimension || height > maxDimension) {
+                        const scale = maxDimension / Math.max(width, height);
+                        width = Math.round(width * scale);
+                        height = Math.round(height * scale);
+                    }
+                    const canvas = document.createElement("canvas");
+                    canvas.width = width;
+                    canvas.height = height;
+                    canvas.getContext("2d").drawImage(img, 0, 0, width, height);
+                    resolve(canvas.toDataURL("image/jpeg", quality).split(",")[1]);
+                };
+                img.onerror = function () {
+                    URL.revokeObjectURL(objectUrl);
+                    reject(new Error("Could not load the selected photo."));
+                };
+                img.src = objectUrl;
+            });
+        }
+
+        photoModalUpload.onclick = async function () {
             const file = photoModalInput.files[0];
             if (!file) {
                 statusEl.textContent = "Choose a photo first.";
                 return;
             }
 
-            const reader = new FileReader();
-            reader.onload = function () {
-                const base64Data = reader.result.split(",")[1];
-                statusEl.textContent = `Sending ${currentPhotoName} to the LWC…`;
-                component.dispatchEvent(
-                    new CustomEvent("photoready", {
-                        detail: {
-                            photoName: currentPhotoName,
-                            fileName: file.name,
-                            base64Data: base64Data
-                        },
-                        bubbles: true,
-                        composed: true
-                    })
-                );
-                photoModal.hidden = true;
-                currentPhotoName = null;
-            };
-            reader.onerror = function () {
+            statusEl.textContent = `Preparing ${file.name}…`;
+            let base64Data;
+            try {
+                base64Data = await resizeImageToBase64(file, 1280, 0.7);
+            } catch (err) {
                 statusEl.textContent = "Could not read the selected photo.";
-            };
-            reader.readAsDataURL(file);
+                return;
+            }
+
+            const fileName = file.name.replace(/\.[^.]+$/, "") + ".jpg";
+            statusEl.textContent = `Sending ${currentPhotoName} to the LWC…`;
+            component.dispatchEvent(
+                new CustomEvent("photoready", {
+                    detail: {
+                        photoName: currentPhotoName,
+                        fileName: fileName,
+                        base64Data: base64Data
+                    },
+                    bubbles: true,
+                    composed: true
+                })
+            );
+            photoModal.hidden = true;
+            currentPhotoName = null;
         };
 
         component.addEventListener("photouploadresult", function (event) {
@@ -322,6 +355,7 @@
             expandLightningComponent();
             // Only now is the Lightning Out app booted and the LWC upgraded/ready to receive events.
             document.getElementById("loadFlowButton").disabled = false;
+            document.getElementById("loginButton").hidden = true;
         }
         else {
             alert(
