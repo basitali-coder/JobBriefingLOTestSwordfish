@@ -13,7 +13,7 @@ Notes:  Enter username should be handled in MMO backend for single sign-on
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>External site</title>
         
-        <script src="https://masternaut--jobbrief.sandbox.my.salesforce.com/lightning/lightning.out.latest/index.iife.prod.js"></script>
+        <script src="https://masternaut--testers.sandbox.my.salesforce.com/lightning/lightning.out.latest/index.iife.prod.js"></script>
         <style>
             c-lightning-out-job-briefing-wrapper.loaded {background-color: #ffffff;
                                                         height: 70vh !important;}
@@ -23,7 +23,7 @@ Notes:  Enter username should be handled in MMO backend for single sign-on
     
     <body>
         <button onClick="window.location.reload();">Refresh Page</button>            
-        <h2>Job Briefing External Site Page - JobBrief Developer Sandbox</h2>
+        <h2>Job Briefing External Site Page - Testers Sandbox</h2>
         <p>Enter salesforce user name and click login to login as. (For testing purpose only with permitted user. Refresh page to change user. This login will be handled automatically from MMO backend.)</p>             
         <label for="username">Salesforce username</label>
         <input id="username" type="text" placeholder="user@mcf.com">
@@ -31,11 +31,11 @@ Notes:  Enter username should be handled in MMO backend for single sign-on
         <button id="loginButton">Login to Salesforce</button>
         <br/>
         <!-- Obtain code from lightning out in salesforce or change app id for different org-->
-        <lightning-out-application  id="loApp" app-id="1UsR100000000knKAA" components="c-lightning-out-job-briefing-wrapper"></lightning-out-application>
+        <lightning-out-application  id="loApp" app-id="1Us9Z00000001VZSAY" components="c-lightning-out-job-briefing-wrapper"></lightning-out-application>
         <c-lightning-out-job-briefing-wrapper></c-lightning-out-job-briefing-wrapper>
         
         <script>
-            const WORKER_URL = "https://wild-pine-3c65.basit-ali.workers.dev/";
+            const WORKER_URL = "https://yellow-night-4510.basit-ali.workers.dev/";
             function expandLightningComponent() {
                 const component = document.querySelector("c-lightning-out-job-briefing-wrapper");
                 if (component) {component.classList.add("loaded");
