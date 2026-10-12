@@ -73,6 +73,7 @@ Notes:  Enter username should be handled in MMO backend for single sign-on
                         // Using Lightning Out  Salesforce frontdoor URL obtained from backend
     
                         const loApp =document.getElementById("loApp");
+                        console.log('URL returned from backend getFrontdoor = ' + result?.frontdoor_uri);
                         loApp.setAttribute("frontdoor-url",result.frontdoor_uri);
                         console.log("Lightning Out frontdoor configured");
                         expandLightningComponent();
