@@ -105,12 +105,13 @@ Notes:  Enter username should be handled in MMO backend for single sign-on
 
             //This can be used to handle errors from LO app on MMO
             loApp.addEventListener('lo.application.error', (event) => {
-                console.error('Lightning Out application failed');
-                console.error('Message:', event.detail?.message);
-                console.error('Original error:', event.detail?.originalError);
-
-                // Log the full event details for troubleshooting.
-                console.log('Full error details:', event.detail);
+                if(!isLOWrapperComponentReady){
+                        console.error('Lightning Out application failed');
+                        console.error('Message:', event.detail?.message);
+                        console.error('Original error:', event.detail?.originalError);
+                        // Log the full event details for troubleshooting.
+                        console.log('Full error details:', event.detail);
+                }
             });
             ////
             document.getElementById("loginButton").onclick = async function () {
