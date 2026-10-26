@@ -14,7 +14,7 @@ Notes:  Enter username should be handled in MMO backend for single sign-on
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>External site</title>
         
-        <script src="https://masternaut--testers.sandbox.my.salesforce.com/lightning/lightning.out.latest/index.iife.prod.js"></script>
+        <script src="https://masternaut--swordfish.sandbox.my.salesforce.com/lightning/lightning.out.latest/index.iife.prod.js"></script>
         <style>
             c-lightning-out-job-briefing-wrapper.loaded {background-color: #ffffff;
                                                         height: 70vh !important;}
@@ -45,11 +45,11 @@ Notes:  Enter username should be handled in MMO backend for single sign-on
         <button id="loadBothSequentially">++Login and load flow++</button>
         <br/>
         <!-- Obtain code from lightning out in salesforce or change app id for different org-->
-        <lightning-out-application  id="loApp" app-id="1Us9Z00000001VZSAY" components="c-lightning-out-job-briefing-wrapper"></lightning-out-application>
+        <lightning-out-application  id="loApp" app-id="1Us9Q000000039BSAQ" components="c-lightning-out-job-briefing-wrapper"></lightning-out-application>
         <c-lightning-out-job-briefing-wrapper></c-lightning-out-job-briefing-wrapper>
         
         <script>
-            const WORKER_URL = "https://yellow-night-4510.basit-ali.workers.dev/";
+            const WORKER_URL = "https://polished-pine-0ab0.basit-ali.workers.dev/";
             const wrapperContainer  = document.querySelector("c-lightning-out-job-briefing-wrapper");
             const caseNumberInputElement = document.getElementById("casenumber");
             const loApp =document.getElementById("loApp");
